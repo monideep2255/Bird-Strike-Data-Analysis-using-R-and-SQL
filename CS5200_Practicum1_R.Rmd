@@ -1,0 +1,638 @@
+---
+title: "CS5200_Practicum1"
+author: "Stephen Okeleke, Monideep Chakraborti, Wannian Zhang, Teng Weng"
+date: "11/05/2021"
+output:
+  pdf_document: default
+  powerpoint: 1 slide of every team members contribution
+  html_document:
+    df_print: paged
+---
+
+## 1. (10 points / 2.5 hrs) After inspecting the data file, determine what tables you would need and *create a logical model as a Crow's Feet ERD* in Lucid Chart that is in *at least 2NF* -- it is acceptable to have some redundancy and to not convert all or some of the categorical fields to look up tables. You do not need to show that it is in 2NF and you do not need to list functional dependencies. You may, however, if it helps *communicate your design approach*. All relevant columns in the CSV must be stored in the database (somewhere; see the use of the database below to determine what you need to store). While the database should primarily supports the data in the CSV, assume that this database will be used for an app that can be used by pilots (of any kind of aircraft) to report wildlife incidents. 
+
+(a) URL of logical model as a Crow's Feet ERD that is at least 2NF
+
+![Logical Model](https://lucid.app/lucidchart/971542a3-51a8-40bc-a262-4593e1703bf0/edit?viewport_loc=-227%2C-456%2C1264%2C891%2C0_0&invitationId=inv_6702e037-94ba-4ef1-82c9-f150fcfc98ae)
+
+(b) Explanation of the design approach (what columns were included, what columns were deleted, why, purpose)
+
+*What columns included and what columns were not included?*
+
+The columns that were not included in the database were: Altitude Bin, Wildlife: Number Struck (range), Remains sent to Smithsonian, Aircraft (Large) 
+
+In the question, it is mentioned that while the database should primarily support the data in the CSV, we also assume that this database will be used for an app that can be used by pilots (of any kind of aircraft) to report wildlife incidents. With that in mind, we did not include the following columns in our database: Altitude Bin, Wildlife: Number Struck (range), Remains sent to Smithsonian, Aircraft (Large). All these attributes either did not satisfy the purpose of the database or were represented in the database in some other form. For instance, the attribute [Wildlife: Number Struck (range)] was not included in the database since the attribute [Wildlife: Number Struck (actual)] already contains all the necessary information. This helped us avoid any form of redundancy in the database and makes it more efficient.
+
+*Normalization:*
+
+The logical model is in 1NF as all the attributes in the tables have an atomic value. Next, all the tables in our logical model have a single primary key (no composite keys as primary key) and all the attributes in the tables are functionally dependent on their primary keys. This means that all the tables present in the logical model are at least in 2NF.
+
+## 2. (20 points / 2 hrs) In your R Notebook, *create a set of SQL DDL statements for the above logical model and realize that schema in a new database*. Be sure to have appropriate PK/FK constraints, column constraints, user constraints, look up tables, default values, etc. You may either use {sql} code chunks or an R function to execute the statements.
+
+(a) Realize the schema into a new database with appropriate constraints
+
+## Connect R to MySQL
+```{r}
+library(DBI)
+library(RMySQL)
+```
+
+```{r}
+con = dbConnect(RMySQL::MySQL(),
+                host = "localhost",
+                port = 3306,
+                user = "anuradha",
+                password = "Beckham212921"
+                )
+```
+
+```{sql connection=con}
+DROP SCHEMA IF EXISTS BirdStrikeData;
+```
+
+```{sql connection=con}
+CREATE SCHEMA `BirdStrikeData`
+```
+
+```{r}
+end = dbDisconnect(con)
+```
+
+```{r}
+con = dbConnect(RMySQL::MySQL(),
+                dbname = 'BirdStrikeData',
+                host = "127.0.0.1",
+                port = 3306,
+                user = "anuradha",
+                password = "Beckham212921",
+                encoding = "Latin-1"
+                )
+```
+
+## Drop tables
+```{sql connection=con}
+DROP TABLE IF EXISTS Airports;
+```
+
+## Create tables
+```{sql connection=con}
+CREATE TABLE Airports (
+    airport_id int NOT NULL AUTO_INCREMENT,
+    airport_name varchar(255),
+    PRIMARY KEY (airport_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS FlightDetails;
+```
+
+```{sql connection=con}
+CREATE TABLE FlightDetails (
+    flight_id int NOT NULL AUTO_INCREMENT,
+    flight_date date,
+    airport_id int,
+    origin_state varchar(255),
+    PRIMARY KEY (flight_id),
+    FOREIGN KEY (airport_id) REFERENCES Airports(airport_id) ON DELETE CASCADE
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS Aircrafts;
+```
+
+```{sql connection=con}
+CREATE TABLE Aircrafts (
+    aircraft_id int AUTO_INCREMENT,
+    aircraft_model varchar(255),
+    aircraft_type varchar(255),
+    num_of_engine int,
+    aircraft_operator varchar(255),
+    PRIMARY KEY (aircraft_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS PCIP;
+```
+
+```{sql connection=con}
+CREATE TABLE PCIP (
+    pcip_id int NOT NULL AUTO_INCREMENT,
+    pcip varchar(255),
+    PRIMARY KEY (pcip_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS WTHR;
+```
+
+```{sql connection=con}
+CREATE TABLE WTHR (
+    wthr_id int NOT NULL AUTO_INCREMENT,
+    sky varchar(255),
+    pcip_id int,
+    PRIMARY KEY (wthr_id),
+    FOREIGN KEY (pcip_id) REFERENCES PCIP(pcip_id) ON DELETE CASCADE
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS Remains;
+```
+
+```{sql connection=con}
+CREATE TABLE Remains (
+    remain_id int NOT NULL AUTO_INCREMENT,
+    collected BOOLEAN,
+    sent BOOLEAN,
+    PRIMARY KEY (remain_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS BirdStrikeInfo;
+```
+
+```{sql connection=con}
+CREATE TABLE BirdStrikeInfo (
+    bsi_id int NOT NULL AUTO_INCREMENT,
+    warned BOOLEAN,
+    actual_strike int,
+    altitude int,
+    impact_to_flight int,
+    num_of_injured int,
+    phase_of_flight varchar(255),
+    remarks text,
+    PRIMARY KEY (bsi_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS Wildlife;
+```
+
+```{sql connection=con}
+CREATE TABLE Wildlife (
+    wl_id int NOT NULL AUTO_INCREMENT,
+    wildlife_species varchar(255),
+    wildlife_size varchar(255),
+    PRIMARY KEY (wl_id)
+);
+```
+
+```{sql connection=con}
+DROP TABLE IF EXISTS StrikeLog;
+```
+
+### ON DELETE CASCADE proves to be really valuable when we run our stored procedure as once we delete a record from the parent table, the record from the child table will also be deleted.
+```{sql connection=con}
+CREATE TABLE StrikeLog (
+    record_id int NOT NULL,
+    aircraft_id int,
+    flight_id int,
+    wl_id int,
+    wthr_id int,
+    bsi_id int,
+    remain_id int,
+    indicated_damage varchar(255),
+    cost int,
+    PRIMARY KEY (record_id),
+    FOREIGN KEY (aircraft_id) REFERENCES Aircrafts(aircraft_id) ON DELETE CASCADE,
+    FOREIGN KEY (flight_id) REFERENCES FlightDetails(flight_id) ON DELETE CASCADE,
+    FOREIGN KEY (wl_id) REFERENCES Wildlife(wl_id) ON DELETE CASCADE,
+    FOREIGN KEY (wthr_id) REFERENCES WTHR(wthr_id) ON DELETE CASCADE,
+    FOREIGN KEY (bsi_id) REFERENCES BirdStrikeInfo(bsi_id) ON DELETE CASCADE,
+    FOREIGN KEY (remain_id) REFERENCES Remains(remain_id) ON DELETE CASCADE
+);
+```
+
+## 3. (20 points / 6 hrs) *Load the Bird Strikes CSV file into R and populate the tables with the data*. Show that the loading of the data worked by *displaying parts of each table (do not show the entire tables)*. *Records (rows) from the CSV that do not have flight or aircraft information may be omitted.* *Document and explain your decisions.* See the Hints below for information on db4free. *All data manipulation and importing work must occur in R.* You may not modify the original data outside of R -- that would not be reproducible work. It may be helpful to create a subset of the data for development and testing as the full file is quite large and takes time to load.
+```{r}
+library(dplyr)
+library(tidyr)
+library(lubridate)
+```
+
+## Read the CSV file
+```{r}
+filepath = "/Users/anuradha/Desktop/CS5200/Assignments/Practicum 1/BirdStrikesData.csv"
+raw_ds = read.csv(filepath, header = TRUE, encoding = "Latin-1")
+colnames(raw_ds) = c("record_id", "aircraft_type", "airport_name", "altitude_bin", "aircraft_model", "strike", "actual_strike", "impact_to_flight", "flight_date", "indicated_damage", "num_of_engine", "aircraft_operator", "origin_state", "phase_of_flight", "pcip", "collected", "sent", "remarks", "wildlife_size", "sky", "wildlife_species", "warned", "cost", "altitude", "num_of_injured", "is_large")
+# print(raw_ds)
+```
+
+## Storing information about airport names in a data frame
+```{r}
+df.airport = data.frame(airport_name = raw_ds$airport_name)
+df.airport = distinct(df.airport)
+airport_id = seq(1, nrow(df.airport))
+df.airport = cbind(airport_id, df.airport)
+# print(df.airport)
+```
+
+## Storing information about flight details in a data frame
+```{r}
+df.fight_detail = data.frame(flight_date = raw_ds$flight_date,
+                             airport_name = raw_ds$airport_name,
+                             origin_state = raw_ds$origin_state)
+df.fight_detail = distinct(df.fight_detail)
+flight_id = seq(1, nrow(df.fight_detail))
+df.fight_detail = cbind(flight_id,df.fight_detail)
+df.fight_detail = left_join(df.fight_detail, df.airport, by = c("airport_name"))
+# print(df.fight_detail)
+```
+
+## Storing information about aircrafts in a data frame
+```{r}
+df.aircrafts = data.frame(aircraft_type = raw_ds$aircraft_type,
+                          aircraft_model = raw_ds$aircraft_model,
+                          num_of_engine = raw_ds$num_of_engine,
+                          aircraft_operator = raw_ds$aircraft_operator)
+df.aircrafts = distinct(df.aircrafts)
+aircraft_id = seq(1, nrow(df.aircrafts))
+df.aircrafts = cbind(aircraft_id,df.aircrafts)
+# print(df.aircrafts)
+```
+
+## Storing information about precipitation in a data frame
+```{r}
+df.pcip = data.frame(pcip = raw_ds$pcip)
+df.pcip = distinct(df.pcip)
+pcip_id = seq(1, nrow(df.pcip))
+df.pcip = cbind(pcip_id,df.pcip)
+# print(df.pcip)
+```
+
+## Storing information about weather in a data frame
+```{r}
+df.wthr = data.frame(sky = raw_ds$sky,
+                     pcip = raw_ds$pcip)
+df.wthr = distinct(df.wthr)
+wthr_id = seq(1, nrow(df.wthr))
+df.wthr = cbind(wthr_id,df.wthr)
+df.wthr = left_join(df.wthr, df.pcip, by = c("pcip"))
+# print(df.wthr)
+```
+
+## Storing information about wildlife remains in a data frame
+```{r}
+df.wlr = data.frame("collected" = raw_ds$collected,
+                    "sent" = raw_ds$sent)
+df.wlr = distinct(df.wlr)
+remain_id = seq(1, nrow(df.wlr))
+df.wlr = cbind(remain_id, df.wlr)
+# print(df.wlr)
+```
+
+## Storing information about bird strikes in a data frame
+```{r}
+df.bsi = data.frame("warned" = raw_ds$warned,
+                    "actual_strike" = raw_ds$actual_strike,
+                    "altitude" = raw_ds$altitude,
+                    "impact_to_flight" = raw_ds$impact_to_flight,
+                    "num_of_injured" = raw_ds$num_of_injured,
+                    "phase_of_flight" = raw_ds$phase_of_flight,
+                    "remarks" = raw_ds$remarks)
+df.bsi = distinct(df.bsi)
+bsi_id = seq(1, nrow(df.bsi))
+df.bsi = cbind(bsi_id,df.bsi)
+# print(df.bsi)
+```
+
+## Storing information about wildlife in a data frame
+```{r}
+df.wl = data_frame("wildlife_species" = raw_ds$wildlife_species,
+                   "wildlife_size" = raw_ds$wildlife_size)
+df.wl = distinct(df.wl)
+wl_id = seq(1, nrow(df.wl))
+df.wl = cbind(wl_id,df.wl)
+# print(df.wl)
+```
+
+## Storing information about strike log in a data frame
+```{r}
+df.fl = data.frame(raw_ds)
+df.fl = left_join(df.fl, df.fight_detail, by = c("flight_date", "airport_name", "origin_state"))
+
+df.fl = left_join(df.fl, df.aircrafts, by = c("aircraft_type", "aircraft_model", "num_of_engine", "aircraft_operator"))
+
+df.fl = left_join(df.fl, df.wthr, by = c("sky", "pcip"))
+df.fl = left_join(df.fl, df.wlr, by = c("collected", "sent"))
+df.fl = left_join(df.fl, df.bsi, by = c("warned", "actual_strike", "altitude", "impact_to_flight", "num_of_injured", "phase_of_flight", "remarks"))
+df.fl = left_join(df.fl, df.wl, by = c("wildlife_species", "wildlife_size"))
+# print(df.fl)
+```
+
+```{r}
+df.fl = select(df.fl, -c("aircraft_type", "airport_name", "altitude_bin", "aircraft_model", "strike", "actual_strike", "impact_to_flight", "flight_date", "num_of_engine", "aircraft_operator", "origin_state", "phase_of_flight", "pcip", "collected", "sent", "remarks", "wildlife_size", "sky", "wildlife_species", "warned", "altitude", "num_of_injured", "is_large", "airport_id", "pcip_id"))
+# print(df.fl)
+```
+
+## Writing to the database
+```{r}
+dbWriteTable(con, "Airports", df.airport, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+# print(df.fight_detail)
+length = nrow(df.fight_detail)
+for( i in 1: length){
+  if(!is.na(df.fight_detail[i,2])){
+    df.fight_detail[i,2] = format(mdy(gsub(" 0:00","",df.fight_detail[i,2])), "%Y-%m-%d")
+
+  }
+}
+df.fight_detail = select(df.fight_detail, -c("airport_name"))
+dbWriteTable(con, "FlightDetails", df.fight_detail, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+length = nrow(df.aircrafts)
+for( i in 1: length){
+  if(!is.na(df.aircrafts[i,4])){
+    df.fight_detail[i,4] = as.numeric(df.fight_detail[i,4])
+  }
+}
+dbWriteTable(con, "Aircrafts", df.aircrafts, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+dbWriteTable(con, "PCIP", df.pcip, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+df.wthr = select(df.wthr, -c("pcip"))
+dbWriteTable(con, "WTHR", df.wthr, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+df.wlr[2] = df.wlr[2]*1
+df.wlr[3] = df.wlr[3]*1
+dbWriteTable(con, "Remains", df.wlr, overwrite = ,row.names = F, append= T)
+```
+
+```{r}
+length = nrow(df.bsi)
+for( i in 1: length){
+  if(df.bsi[i,2] == "N"){
+    df.bsi[i,2] = 0
+  }
+  if(df.bsi[i,2] == "Y"){
+    df.bsi[i,2] = 1
+  }
+  if(!is.na(df.bsi[i,3])){
+    df.bsi[i,3] = as.numeric(df.bsi[i,3])
+  }
+  if(!is.na(df.bsi[i,4])){
+    df.bsi[i,4] = strtoi(gsub(",","",  df.bsi[i,4]))
+  }
+  if(!is.na(df.bsi[i,6])){
+    df.bsi[i,6] = as.numeric(df.bsi[i,6])
+  }
+}
+# print(df.bsi)
+dbWriteTable(con,"BirdStrikeInfo", df.bsi, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+dbWriteTable(con, "Wildlife", df.wl, overwrite = F,row.names = F, append= T)
+```
+
+```{r}
+length = nrow(df.fl)
+for( i in 1: length){
+  if(!is.na(df.bsi[i,3])){
+    df.fl[i,3] = strtoi(gsub(",","",  df.fl[i,3]))
+  }
+}
+dbWriteTable(con, "StrikeLog", df.fl, overwrite = F,row.names = F, append= T)
+# print(df.fl)
+```
+
+## Display that the loading of data from CSV worked
+```{sql connection=con}
+SELECT *
+FROM StrikeLog
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM Aircrafts
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM WTHR
+LIMIT 10;
+```
+```{sql connection=con}
+SELECT *
+FROM PCIP
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM Remains
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM BirdStrikeInfo
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM Wildlife
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM FlightDetails
+LIMIT 10;
+```
+
+```{sql connection=con}
+SELECT *
+FROM Airports
+LIMIT 10;
+```
+
+## 4. (10 points / 1 hr) Create a SQL query against your database to *find the number of bird strike incidents for each airline upon take-off or climb*. *Include all airlines*. You may either use a {sql} code chunk or an R function to execute the query. It must be a single query.
+```{sql connection=con}
+SELECT A.aircraft_operator AS Operator, COUNT(S.record_id) AS NumberOfIncidents
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON S.flight_id = F.flight_id
+LEFT JOIN BirdStrikeInfo B
+ON B.bsi_id = S.bsi_id
+LEFT JOIN Aircrafts A
+ON S.aircraft_id = A.aircraft_id
+WHERE B.phase_of_flight IN ('Take-off run', 'Climb')
+GROUP BY A.aircraft_operator;
+```
+
+### Verifying the results of the SQL query:Sum of aggregate column = 9140
+```{sql connection=con}
+SELECT SUM(NumberOfIncidents) FROM
+(SELECT A.aircraft_operator, COUNT(S.record_id) AS NumberOfIncidents 
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON S.flight_id = F.flight_id
+LEFT JOIN BirdStrikeInfo B
+ON B.bsi_id = S.bsi_id
+LEFT JOIN Aircrafts A
+ON S.aircraft_id = A.aircraft_id
+WHERE B.phase_of_flight IN ('Take-off run', 'Climb')
+GROUP BY A.aircraft_operator) AS CountByAirline;
+```
+
+### Verifying the results of the SQL query:Number of rows where strike occurred during take-off and climb = 9140
+```{sql connection=con}
+SELECT COUNT(*) 
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON S.flight_id = F.flight_id
+LEFT JOIN BirdStrikeInfo B
+ON B.bsi_id = S.bsi_id
+WHERE B.phase_of_flight IN ('Take-off run', 'Climb');
+```
+
+## 5. (10 points / 1 hr) Create a SQL query against your database to *find the airports that had the most bird strike incidents (during any flight phase)*. *Include all airlines*. You may either use a {sql} code chunk or an R function to execute the query. It must be a single query.
+```{sql connection=con}
+SELECT A.airport_name, COUNT(S.record_id) AS NumberOfIncidentsByAirport 
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON F.flight_id = S.flight_id
+LEFT JOIN Airports A
+ON A.airport_id = F.airport_id
+GROUP BY A.airport_name;
+```
+### Verifying the results of the SQL query: Sum of aggregate column = 25558. All records were accounted for.
+```{sql connection=con}
+SELECT SUM(NumberOfIncidentsByAirport) 
+FROM (SELECT A.airport_name, COUNT(S.record_id) AS NumberOfIncidentsByAirport 
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON F.flight_id = S.flight_id
+LEFT JOIN Airports A
+ON A.airport_id = F.airport_id
+GROUP BY A.airport_name) AS CountByAirport;
+```
+
+## 6. (10 points / 1 hr) Create a SQL query against your database to *find the number of bird strike incidents by year*. *Include all airlines*. You may either use a {sql} code chunk or an R function to execute the query. It must be a single query.
+```{sql connection=con}
+SELECT Year(F.flight_date) AS Year, COUNT(S.record_id) AS IncidentsPerYear 
+FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON F.flight_id = S.flight_id
+GROUP BY Year
+ORDER BY Year;
+```
+### Verifying the results of the SQL query: Sum of aggregate column = 25558. All records were accounted for.
+```{sql connection=con}
+SELECT SUM(IncidentsPerYear) 
+FROM (SELECT Year(flight_date) Year, COUNT(S.record_id) IncidentsPerYear FROM StrikeLog S
+LEFT JOIN FlightDetails F
+ON F.flight_id= S.flight_id
+GROUP BY Year
+ORDER BY Year) AS CountByYear;
+```
+
+## 7. (10 points / 3 hrs) Using the above data, build a *column chart that visualizes the number of bird strikes incidents per year from 2008 to 2011* during *take-off/climbing and during descent/approach/landing*, so you can compare one versus the other. Adorn the graph with appropriate axis labels, titles, legend, data labels, etc.
+
+### Take-off/Climbing
+```{r}
+stmt = '
+    select Year(FlightDetails.flight_date) as "Year", 
+    	sum(BirdStrikeInfo.actual_strike) as "total"
+    from FlightDetails
+    	inner join StrikeLog
+    		on StrikeLog.flight_id = FlightDetails.flight_id
+            inner join BirdStrikeInfo
+    			on BirdStrikeInfo.bsi_id = StrikeLog.bsi_id
+    where Year(FlightDetails.flight_date) >= 2008 
+    	and Year(FlightDetails.flight_date) <= 2011
+    	and BirdStrikeInfo.phase_of_flight in ("Take-off Run", "Climb")
+    group by Year(FlightDetails.flight_date)
+    order by Year(FlightDetails.flight_date)'
+res1 = as.tibble(dbGetQuery(con,stmt))
+print(res1)
+```
+
+### Descent/Approach/Landing
+```{r}
+stmt = '
+    select Year(FlightDetails.flight_date) as "Year", 
+    	sum(BirdStrikeInfo.actual_strike) as "total"
+    from FlightDetails
+    	inner join StrikeLog
+    		on StrikeLog.flight_id = FlightDetails.flight_id
+            inner join BirdStrikeInfo
+    			on BirdStrikeInfo.bsi_id = StrikeLog.bsi_id
+    where Year(FlightDetails.flight_date) >= 2008 
+    	and Year(FlightDetails.flight_date) <= 2011
+    	and BirdStrikeInfo.phase_of_flight in ("Descent", "Approach", "Landing Roll")
+    group by Year(FlightDetails.flight_date)
+    order by Year(FlightDetails.flight_date)'
+res2 = as.tibble(dbGetQuery(con,stmt))
+print(res2)
+```
+
+### Column chart
+```{r}
+df.plot = data.frame(res1, res2)
+colnames(df.plot) = c("Year", "Take-off Run/Climb", "Descent/Approach/Landing Roll")
+print(df.plot)
+years = rep(df.plot$Year,2)
+toc = rep(df.plot$`Take-off Run/Climb`)
+dal = rep(df.plot$`Descent/Approach/Landing Roll`)
+total_strike = c(toc,dal)
+type = c(rep("Take-off Run/Climb", 4), rep("Descent/Approach/Landing Roll", 4))
+df.plot = data_frame(years,total_strike, type)
+ggplot(df.plot, aes(years, total_strike))+geom_bar(stat = "identity", aes(fill = type), position = "dodge")
+ggtitle("Bird strikes during different phases of flight between 2008 to 2011")
+```
+
+## 8. (10 points / 3 hrs) *Create a stored procedure in MySQL (note that if you used SQLite, then you cannot complete this step) that removes a bird strike incident from the database.* You may decide what you need to pass to the stored procedure to remove a bird strike incident, e.g., departure airport, airlines, or some ID. Show that the deletion worked as expected.
+```{sql connection=con}
+SELECT * 
+FROM StrikeLog;
+```
+
+```{sql connection=con}
+DROP PROCEDURE IF EXISTS Delete_birdStrike;
+```
+
+```{sql connection=con}
+
+CREATE PROCEDURE Delete_birdStrike (IN recordID INTEGER)
+BEGIN
+    DELETE FROM StrikeLog S
+    WHERE S.record_id = recordID;
+END 
+```
+
+```{sql connection=con}
+-- specify the 1st record ID
+CALL Delete_birdStrike(1195);
+```
+
+## To confirm that the record was deleted:
+```{sql connection=con}
+SELECT * 
+FROM StrikeLog;
+```
+
+## In the last step we disconnect from the database
+```{r}
+end = dbDisconnect(con)
+```
